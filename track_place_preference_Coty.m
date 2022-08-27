@@ -25,14 +25,15 @@ type_experiment = input('type experiment (CPA/GsDREADD)? (('')) = ');
 % date_experiment= '21.07.28';
 switch type_experiment
     case 'CPA'
-    videos_rootpath = 'F:\Experimentos_Coty\Suiza\Experimentos 2022\Prueba CPA\CI-6';
-    min_area = 1300;%1300;
-    length_shortest_side = 21;
-
+        cage = input('Choose cage: ');
+        videos_rootpath = ['F:\Experimentos_Coty\Suiza\Experimentos 2022\Prueba CPA\',cage];
+        min_area = 750; %1300;%1300;
+        length_shortest_side = 21;
+        
     case 'GsDREADD'
-    videos_rootpath = ['M:\Liselot\Data\2. opto-5HT7\CPP\GsDREADD_CCI\', date_experiment];
-    min_area = 500;
-    length_shortest_side = 29.3;
+        videos_rootpath = ['M:\Liselot\Data\2. opto-5HT7\CPP\GsDREADD_CCI\', date_experiment];
+        min_area = 500;
+        length_shortest_side = 29.3;
 end
 reply = questdlg('Do you want to display the videos? Y/N');
 % reply = input('Do you want to display the videos? Y/N [Y]:','s');
@@ -109,8 +110,41 @@ end
 
 % set element structure
 str_1 = strel('square', 10);
-threshold = .20;
+% threshold = .20;
+% set defaults
+thr = 0.9;
 objpixels = 2000; % min area for detecting a mouse
+brightness = 0;
+set_area = logical(input('Do you want to set the values of threshold and min area for this mouse? 1 for yes 0 for no \n'));
+%% Get an app to select the area of a mouse
+if set_area
+    frame_to_take = read(the_vid, min_area);
+    frame_to_take = rgb2gray(frame_to_take);
+    inputImage =   imcrop(frame_to_take, arena);
+    [rows, columns] = size(inputImage);
+    medianFilteredImage = medfilt2(inputImage);
+    % Traditional binarization and segmentation
+    %     imtosegment = medianFilteredImage+brightness;
+    %     binary_image = imbinarize(255-medianFilteredImage,0.75); %0.92 0.75
+    frame_to_take = medianFilteredImage;
+    
+    warning('off')
+    %     app_routine='GUI_select_thr_and_area';
+    app = GUI_select_thr_and_area(frame_to_take, 0.9, min_area, brightness);
+    waitfor(app.ENDButton,'UserData')
+    thr = app.threshold;
+    min_area = app.MIN_AREA;
+    brightness = app.brightness;
+    try
+        app.delete
+    catch ME
+    end
+end
+
+
+
+
+
 %% Loop through frames
 tic
 frame_nr = 1;
@@ -157,7 +191,8 @@ while frame_nr < n_frames % hasFrame(the_vid) %frame_nr < n_frames
     % Traditional binarization and segmentation
     imtosegment = medianFilteredImage+150;
 %     binary_image = imbinarize(255-medianFilteredImage,0.75); %0.92 0.75
-    binary_image = imbinarize(255-medianFilteredImage,0.9); %0.92 0.75
+    median_img = median(medianFilteredImage(:));
+    binary_image = imbinarize(255-medianFilteredImage + median_img* brightness,thr); %0.92 0.75
     mouse = bwareaopen(binary_image, min_area) * 255; % remove any object smaller than mouse's area
     %         new_frame_1 = bwareaopen(mouse);
     %         new_frame_1 = bwareaopen(imbinarize(255-mouse, threshold),objpixels) * 255; % remove any object smaller than 50 pixels
